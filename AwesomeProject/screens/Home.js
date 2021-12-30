@@ -1,39 +1,79 @@
-import React from 'react';
-import {View, TouchableOpacity, Text} from 'react-native';
+import React, {useState, useEffect, useCallback} from 'react';
+import {StyleSheet, FlatList, RefreshControl, Text} from 'react-native';
+import {TouchableOpacity} from 'react-native-gesture-handler';
+import PalettePreview from '../components/PaletterPreview';
 
-const SOLARIZED = [
-  {colorName: 'Base03', hexCode: '#002b36'},
-  {colorName: 'Base02', hexCode: '#073642'},
-  {colorName: 'Base01', hexCode: '#586e75'},
-  {colorName: 'Base00', hexCode: '#657b83'},
-  {colorName: 'Base0', hexCode: '#839496'},
-  {colorName: 'Base1', hexCode: '#93a1a1'},
-  {colorName: 'Base2', hexCode: '#eee8d5'},
-  {colorName: 'Base3', hexCode: '#fdf6e3'},
-  {colorName: 'Yellow', hexCode: '#b58900'},
-  {colorName: 'Orange', hexCode: '#cb4b16'},
-  {colorName: 'Red', hexCode: '#dc322f'},
-  {colorName: 'Magenta', hexCode: '#d33682'},
-  {colorName: 'Violet', hexCode: '#6c71c4'},
-  {colorName: 'Blue', hexCode: '#268bd2'},
-  {colorName: 'Cyan', hexCode: '#2aa198'},
-  {colorName: 'Green', hexCode: '#859900'},
-];
+const Home = ({navigation, route}) => {
+  const newColorPalette = route.params?.newColorPalette;
+  const [colorPalette, setColorPalette] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const fetchColorPalette = useCallback(async () => {
+    const result = await fetch(
+      'https://color-palette-api.kadikraman.vercel.app/palettes',
+    );
+    if (result.ok) {
+      const palettes = await result.json();
+      setColorPalette(palettes);
+    }
+  }, []);
 
-const Home = ({navigation}) => {
+  useEffect(() => {
+    fetchColorPalette();
+  }, [fetchColorPalette]);
+
+  useEffect(() => {
+    if (newColorPalette) {
+      setColorPalette(p => [newColorPalette, ...p]);
+    }
+  }, [newColorPalette, setColorPalette]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchColorPalette();
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 3000);
+  }, [fetchColorPalette]);
+
   return (
-    <View>
-      <TouchableOpacity
-        onPress={() => {
-          navigation.navigate('ColorPalette', {
-            paletteName: 'solarized',
-            colors: SOLARIZED,
-          });
-        }}>
-        <Text>Solarized</Text>
-      </TouchableOpacity>
-    </View>
+    <FlatList
+      style={styles.list}
+      data={colorPalette}
+      keyExtractor={item => item.paletteName}
+      renderItem={({item}) => (
+        <PalettePreview
+          onPress={() => {
+            navigation.navigate('ColorPalette', item);
+          }}
+          palette={item}
+        />
+      )}
+      ListHeaderComponent={
+        <TouchableOpacity
+          onPress={() => {
+            navigation.navigate('ColorPaletteModal');
+          }}>
+          <Text style={styles.buttonText}>Add a color schema</Text>
+        </TouchableOpacity>
+      }
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+      }
+    />
   );
 };
+
+const styles = StyleSheet.create({
+  list: {
+    padding: 10,
+    backgroundColor: '#fff',
+  },
+  buttonText: {
+    fontWeight: 'bold',
+    paddingVertical: 18,
+    color: 'teal',
+    marginBottom: 10,
+  },
+});
 
 export default Home;
